@@ -10,7 +10,7 @@
 </head>
 <body>
 <p>
-    聊天室
+    聊天室  <span style="font-size: 10px" >（当前在线人数：<span style="color: aqua" id="count"></span>）</span>
 </p>
 
 <form id="nasusFrom">
@@ -36,15 +36,24 @@
     var sock = new SockJS("/endpointChat");
     var stomp = Stomp.over(sock);
     stomp.connect({}, function(frame) {
-        // 订阅/chat/addnotify 发送的消息，这里与在控制器的
-        // messagingTemplate.convertAndSendToUser 中订阅的地址保持一致
+
+        // 加入聊天室
         stomp.send("/app/addChat",{token:"token"}, userName)
+        // 订阅 谁进入聊天室
         stomp.subscribe("/topic/chat/addnotify", handleNotification);
+        // 订阅 聊天消息推送
         stomp.subscribe("/topic/chat/msgnotify", handlemsgFunction);
+        // 订阅 聊天人数推送
+        stomp.subscribe("/topic/chat/count", handlecountFunction);
     });
 
+    function handlecountFunction(message) {
+        $("#count").text(message.body)
+    }
+
     function handlemsgFunction(message) {
-        $('#output').append("<b >" + JSON.parse(message.body).name + ": " + JSON.parse(message.body).message +"</b><br/>")
+        var data = JSON.parse(message.body);
+        $('#output').append("<b >" + data.name + ": " + data.message +"</b><br/>")
     }
 
     function handleNotification(message) {
@@ -56,7 +65,11 @@
         stomp.send("/app/chat", {}, JSON.stringify({"name": userName, "message" : text}));//3
         $("#text").val("");
     }
-    $('#stop').click(function() {sock.close()});
+    $('#stop').click(function() {
+        // 退出聊天室
+        stomp.send("/app/exitChat",{}, userName)
+        sock.close()
+    });
 
 </script>
 
