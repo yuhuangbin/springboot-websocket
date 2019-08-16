@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org">
+<meta charset="UTF-8" />
+<head>
+    <title>Home</title>
+    <script th:src="@{sockjs.min.js}"></script>
+    <script th:src="@{stomp.min.js}"></script>
+    <script th:src="@{jquery.js}"></script>
+</head>
+<body>
+<p>
+    聊天室
+</p>
+
+<form id="nasusFrom">
+    <textarea rows="4" cols="60" id="text" name="text"></textarea>
+    <input type="button" id="clear" value="清屏" >
+    <input type="submit" id="submit"/>
+    <button id="stop">离开</button>
+</form>
+<script th:inline="javascript">
+    var userName = [[${userName}]];
+
+    $("#clear").click(function () {
+        $('#output').html("");
+    });
+
+    $('#nasusFrom').submit(function(e){
+        e.preventDefault();
+        var text = $('#nasusFrom').find('textarea[name="text"]').val();
+        sendSpittle(text);
+    });
+
+    // 连接 SockJs 的 endpoint 名称为 "/endpointChat"
+    var sock = new SockJS("/endpointChat");
+    var stomp = Stomp.over(sock);
+    stomp.connect({}, function(frame) {
+        // 订阅/chat/addnotify 发送的消息，这里与在控制器的
+        // messagingTemplate.convertAndSendToUser 中订阅的地址保持一致
+        stomp.send("/app/addChat",{token:"token"}, userName)
+        stomp.subscribe("/topic/chat/addnotify", handleNotification);
+        stomp.subscribe("/topic/chat/msgnotify", handlemsgFunction);
+    });
+
+    function handlemsgFunction(message) {
+        $('#output').append("<b >" + JSON.parse(message.body).name + ": " + JSON.parse(message.body).message +"</b><br/>")
+    }
+
+    function handleNotification(message) {
+        $('#output').append("<b style='color: aqua'>欢迎用户【 " + message.body + "】加入聊天</b><br/>")
+    }
+
+    function sendSpittle(text) {
+        // 通过 stompClient.send 向 /chat 目标发送信息，对应控制器 @MessageMapping 中的定义
+        stomp.send("/app/chat", {}, JSON.stringify({"name": userName, "message" : text}));//3
+        $("#text").val("");
+    }
+    $('#stop').click(function() {sock.close()});
+
+</script>
+
+<div id="output"></div>
+</body>
+</html>
